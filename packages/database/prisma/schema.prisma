@@ -1,0 +1,584 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ModuleImplementationStatus {
+  IMPLEMENTED
+  PLANNED
+}
+
+enum IdempotencyStatus {
+  PENDING
+  COMPLETED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum AuthAuditEventType {
+  AUTH_LOGIN_SUCCESS
+  AUTH_LOGIN_FAILURE
+  AUTH_SIGN_UP_SUCCESS
+  AUTH_SIGN_UP_FAILURE
+  AUTH_VERIFICATION_SUCCESS
+  AUTH_PASSWORD_RESET_REQUEST
+  AUTH_PASSWORD_CHANGE
+  SESSION_REVOKED
+  ROLE_CHANGED
+  PERMISSION_CHANGED
+  TOTP_ENROLMENT_STARTED
+  TOTP_ENROLMENT_COMPLETED
+  TOTP_VERIFICATION_SUCCESS
+  TOTP_VERIFICATION_FAILURE
+  TOTP_RECOVERY_CODE_USED
+  TOTP_REMOVED
+}
+
+enum VendorStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum VendorApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  CHANGES_REQUIRED
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum VendorBankVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+model User {
+  id                  String                   @id
+  name                String
+  email               String                   @unique
+  emailVerified       Boolean                  @default(false)
+  image               String?
+  phoneNumber         String?                  @unique
+  phoneNumberVerified Boolean                  @default(false)
+  twoFactorEnabled    Boolean                  @default(false)
+  createdAt           DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                 @updatedAt @db.Timestamptz(6)
+  accounts            Account[]
+  sessions            Session[]
+  memberships         OrganizationMembership[]
+  totpCredential      AdminTotpCredential?
+  recoveryCodes       AuthRecoveryCode[]
+}
+
+model Session {
+  id            String    @id
+  expiresAt     DateTime  @db.Timestamptz(6)
+  token         String    @unique
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  ipAddress     String?
+  userAgent     String?
+  userId        String
+  mfaVerifiedAt DateTime? @db.Timestamptz(6)
+  mfaMethod     String?
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(6)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([identifier])
+  @@index([expiresAt])
+}
+
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+
+model OrganizationMembership {
+  id                            String                  @id @default(uuid()) @db.Uuid
+  organizationId                String                  @db.Uuid
+  userId                        String
+  status                        MembershipStatus        @default(ACTIVE)
+  createdAt                     DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt                     DateTime                @updatedAt @db.Timestamptz(6)
+  organization                  Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments                   RoleAssignment[]
+  vendorApplications            VendorApplication[]     @relation("VendorApplicant")
+  invitedVendorStaff            VendorStaffInvitation[] @relation("VendorInviteCreator")
+  acceptedVendorInvites         VendorStaffInvitation[] @relation("VendorInviteAcceptance")
+  vendorStaffPermissionGrants   VendorStaffPermission[] @relation("VendorStaffTarget")
+  grantedVendorStaffPermissions VendorStaffPermission[] @relation("VendorPermissionGrantor")
+
+  @@unique([organizationId, userId])
+  @@unique([id, organizationId])
+  @@index([userId, status])
+}
+
+model Permission {
+  organizationId String           @db.Uuid
+  key            String
+  description    String
+  roles          RolePermission[]
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, key])
+}
+
+model Role {
+  organizationId String           @db.Uuid
+  key            String
+  label          String
+  permissions    RolePermission[]
+  assignments    RoleAssignment[]
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, key])
+}
+
+model RolePermission {
+  organizationId String     @db.Uuid
+  roleKey        String
+  permissionKey  String
+  role           Role       @relation(fields: [organizationId, roleKey], references: [organizationId, key], onDelete: Cascade)
+  permission     Permission @relation(fields: [organizationId, permissionKey], references: [organizationId, key], onDelete: Restrict)
+
+  @@id([organizationId, roleKey, permissionKey])
+  @@index([permissionKey])
+}
+
+model RoleAssignment {
+  id               String                 @id @default(uuid()) @db.Uuid
+  organizationId   String                 @db.Uuid
+  membershipId     String                 @db.Uuid
+  roleKey          String
+  vendorId         String?                @db.Uuid
+  vendorApprovedAt DateTime?              @db.Timestamptz(6)
+  assignedByUserId String?
+  createdAt        DateTime               @default(now()) @db.Timestamptz(6)
+  membership       OrganizationMembership @relation(fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  role             Role                   @relation(fields: [organizationId, roleKey], references: [organizationId, key], onDelete: Restrict)
+
+  @@index([membershipId, roleKey])
+  @@index([vendorId])
+}
+
+model AdminTotpCredential {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @unique
+  secretCiphertext String
+  setupExpiresAt   DateTime  @db.Timestamptz(6)
+  verifiedAt       DateTime? @db.Timestamptz(6)
+  lastAcceptedStep BigInt?
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuthRecoveryCode {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String
+  codeHash  String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, codeHash])
+  @@index([userId])
+}
+
+model AuthAuditEvent {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String?            @db.Uuid
+  actorUserId    String?
+  targetUserId   String?
+  requestId      String?
+  eventType      AuthAuditEventType
+  metadata       Json?
+  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
+  organization   Organization?      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model PhoneOtpChallenge {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  phoneKey       String
+  purpose        String
+  userId         String?
+  codeHash       String
+  attempts       Int          @default(0)
+  expiresAt      DateTime     @db.Timestamptz(6)
+  resendAfter    DateTime     @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, phoneKey, purpose])
+  @@index([expiresAt])
+}
+
+model Organization {
+  id                     String                   @id @default(uuid()) @db.Uuid
+  key                    String                   @unique
+  displayName            String
+  locale                 String
+  currency               String
+  timeZone               String
+  coreVersion            String
+  config                 Json
+  createdAt              DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                 @updatedAt @db.Timestamptz(6)
+  domains                Domain[]
+  settings               OrganizationSetting[]
+  modules                OrganizationModule[]
+  outbox                 OutboxEvent[]
+  idempotency            IdempotencyRecord[]
+  smokeEffects           SmokeJobEffect[]
+  memberships            OrganizationMembership[]
+  authAudit              AuthAuditEvent[]
+  roles                  Role[]
+  permissions            Permission[]
+  phoneChallenges        PhoneOtpChallenge[]
+  vendors                Vendor[]
+  vendorApplications     VendorApplication[]
+  vendorSubmissions      VendorSubmission[]
+  vendorDocuments        VendorDocument[]
+  vendorDecisions        VendorDecision[]
+  vendorInvitations      VendorStaffInvitation[]
+  vendorStaffPermissions VendorStaffPermission[]
+  vendorBankProfiles     VendorBankProfile[]
+  vendorAuditEvents      VendorAuditEvent[]
+}
+
+model Domain {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  host           String       @unique
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model OrganizationSetting {
+  organizationId String       @db.Uuid
+  key            String
+  value          Json
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, key])
+}
+
+model ModuleDefinition {
+  key           String               @id
+  name          String
+  description   String
+  displayOrder  Int
+  organizations OrganizationModule[]
+}
+
+model OrganizationModule {
+  organizationId       String                     @db.Uuid
+  moduleKey            String
+  enabled              Boolean                    @default(false)
+  implementationStatus ModuleImplementationStatus @default(PLANNED)
+  organization         Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  module               ModuleDefinition           @relation(fields: [moduleKey], references: [key], onDelete: Restrict)
+
+  @@id([organizationId, moduleKey])
+  @@index([moduleKey])
+}
+
+model OutboxEvent {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  dedupeKey      String
+  eventType      String
+  payload        Json
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  publishedAt    DateTime?    @db.Timestamptz(6)
+  attempts       Int          @default(0)
+  lastError      String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, dedupeKey])
+  @@index([publishedAt, createdAt])
+}
+
+model IdempotencyRecord {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  actorKey       String
+  operation      String
+  idempotencyKey String
+  requestHash    String
+  status         IdempotencyStatus @default(PENDING)
+  response       Json?
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+  expiresAt      DateTime          @db.Timestamptz(6)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, actorKey, operation, idempotencyKey])
+  @@index([expiresAt])
+}
+
+model WorkerHeartbeat {
+  id         String   @id
+  startedAt  DateTime @db.Timestamptz(6)
+  lastSeenAt DateTime @db.Timestamptz(6)
+  version    String
+}
+
+model SmokeJobEffect {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  jobKey         String
+  processedAt    DateTime     @default(now()) @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, jobKey])
+}
+
+model Vendor {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  organizationId      String                  @db.Uuid
+  status              VendorStatus            @default(PENDING_APPROVAL)
+  legalName           String?
+  storeName           String?
+  entityType          String?
+  registeredAddress   Json?
+  operationalAddress  Json?
+  contactEmail        String?
+  contactPhone        String?
+  taxIdentifiers      Json?
+  businessIdentifiers Json?
+  contactPersonName   String?
+  description         String?
+  supportEmail        String?
+  supportPhone        String?
+  shippingOrigins     Json?
+  logoReference       String?                 @db.Uuid
+  bannerReference     String?                 @db.Uuid
+  createdAt           DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                @updatedAt @db.Timestamptz(6)
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  application         VendorApplication?
+  documents           VendorDocument[]
+  decisions           VendorDecision[]
+  invitations         VendorStaffInvitation[]
+  staffPermissions    VendorStaffPermission[]
+  bankProfile         VendorBankProfile?
+  auditEvents         VendorAuditEvent[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, status, updatedAt])
+}
+
+model VendorApplication {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  organizationId        String                  @db.Uuid
+  vendorId              String                  @db.Uuid
+  applicantMembershipId String                  @db.Uuid
+  status                VendorApplicationStatus @default(DRAFT)
+  submittedAt           DateTime?               @db.Timestamptz(6)
+  reviewedAt            DateTime?               @db.Timestamptz(6)
+  approvedAt            DateTime?               @db.Timestamptz(6)
+  rejectedAt            DateTime?               @db.Timestamptz(6)
+  createdAt             DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                @updatedAt @db.Timestamptz(6)
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  vendor                Vendor                  @relation(fields: [vendorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  applicantMembership   OrganizationMembership  @relation("VendorApplicant", fields: [applicantMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  submissions           VendorSubmission[]
+  documents             VendorDocument[]
+  decisions             VendorDecision[]
+
+  @@unique([id, organizationId])
+  @@unique([vendorId, organizationId])
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, applicantMembershipId, status])
+}
+
+model VendorSubmission {
+  id                String            @id @default(uuid()) @db.Uuid
+  organizationId    String            @db.Uuid
+  applicationId     String            @db.Uuid
+  revision          Int
+  profileSnapshot   Json
+  documentIds       String[]          @default([])
+  submittedByUserId String
+  submittedAt       DateTime          @default(now()) @db.Timestamptz(6)
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  application       VendorApplication @relation(fields: [applicationId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([applicationId, revision])
+  @@index([organizationId, submittedAt])
+}
+
+model VendorDocument {
+  id               String            @id @default(uuid()) @db.Uuid
+  organizationId   String            @db.Uuid
+  vendorId         String            @db.Uuid
+  applicationId    String            @db.Uuid
+  category         String
+  storageKey       String            @unique
+  originalFilename String
+  mediaType        String
+  sizeBytes        Int
+  sha256           String
+  uploadedByUserId String
+  supersedesId     String?           @db.Uuid
+  active           Boolean           @default(true)
+  uploadedAt       DateTime          @default(now()) @db.Timestamptz(6)
+  replacedAt       DateTime?         @db.Timestamptz(6)
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  vendor           Vendor            @relation(fields: [vendorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  application      VendorApplication @relation(fields: [applicationId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  supersedes       VendorDocument?   @relation("VendorDocumentReplacement", fields: [supersedesId, organizationId, vendorId], references: [id, organizationId, vendorId], onDelete: Restrict)
+  replacedBy       VendorDocument[]  @relation("VendorDocumentReplacement")
+
+  @@unique([id, organizationId, vendorId])
+  @@index([organizationId, vendorId, active, category])
+  @@index([applicationId, uploadedAt])
+}
+
+model VendorDecision {
+  id             String                  @id @default(uuid()) @db.Uuid
+  organizationId String                  @db.Uuid
+  vendorId       String                  @db.Uuid
+  applicationId  String                  @db.Uuid
+  actorUserId    String
+  fromStatus     VendorApplicationStatus
+  toStatus       VendorApplicationStatus
+  internalReason String
+  vendorMessage  String?
+  createdAt      DateTime                @default(now()) @db.Timestamptz(6)
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  vendor         Vendor                  @relation(fields: [vendorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  application    VendorApplication       @relation(fields: [applicationId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([organizationId, vendorId, createdAt])
+  @@index([applicationId, createdAt])
+}
+
+model VendorStaffInvitation {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  organizationId        String                  @db.Uuid
+  vendorId              String                  @db.Uuid
+  invitedByMembershipId String                  @db.Uuid
+  acceptedMembershipId  String?                 @db.Uuid
+  email                 String?
+  phone                 String?
+  tokenHash             String                  @unique
+  permissionKeys        String[]                @default([])
+  expiresAt             DateTime                @db.Timestamptz(6)
+  acceptedAt            DateTime?               @db.Timestamptz(6)
+  revokedAt             DateTime?               @db.Timestamptz(6)
+  createdAt             DateTime                @default(now()) @db.Timestamptz(6)
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  vendor                Vendor                  @relation(fields: [vendorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  invitedByMembership   OrganizationMembership  @relation("VendorInviteCreator", fields: [invitedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  acceptedMembership    OrganizationMembership? @relation("VendorInviteAcceptance", fields: [acceptedMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([organizationId, vendorId, createdAt])
+  @@index([expiresAt, acceptedAt, revokedAt])
+}
+
+model VendorStaffPermission {
+  organizationId        String                 @db.Uuid
+  vendorId              String                 @db.Uuid
+  membershipId          String                 @db.Uuid
+  permissionKey         String
+  grantedByMembershipId String                 @db.Uuid
+  createdAt             DateTime               @default(now()) @db.Timestamptz(6)
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  vendor                Vendor                 @relation(fields: [vendorId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  membership            OrganizationMembership @relation("VendorStaffTarget", fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  grantedByMembership   OrganizationMembership @relation("VendorPermissionGrantor", fields: [grantedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@id([organizationId, vendorId, membershipId, permissionKey])
+  @@index([organizationId, membershipId])
+}
+
+model VendorBankProfile {
+  id                   String                       @id @default(uuid()) @db.Uuid
+  organizationId       String                       @db.Uuid
+  vendorId             String                       @db.Uuid
+  ciphertext           String
+  keyVersion           String
+  lastFour             String
+  verificationStatus   VendorBankVerificationStatus @default(PENDING)
+  supportingDocumentId String?                      @db.Uuid
+  verifiedAt           DateTime?                    @db.Timestamptz(6)
+  verifiedByUserId     String?
+  createdAt            DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                     @updatedAt @db.Timestamptz(6)
+  organization         Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  vendor               Vendor                       @relation(fields: [vendorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([vendorId, organizationId])
+  @@index([organizationId, verificationStatus])
+}
+
+model VendorAuditEvent {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  vendorId       String       @db.Uuid
+  actorUserId    String?
+  action         String
+  targetId       String?
+  requestId      String?
+  metadata       Json?
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  vendor         Vendor       @relation(fields: [vendorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([organizationId, vendorId, createdAt])
+  @@index([actorUserId, createdAt])
+}

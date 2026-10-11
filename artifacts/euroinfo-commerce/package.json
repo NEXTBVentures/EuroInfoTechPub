@@ -1,0 +1,11 @@
+{
+  "name": "@workspace/euroinfo-commerce",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @workspace/web exec next dev --webpack --hostname 0.0.0.0 --port ${PORT:-3000}",
+    "build": "pnpm build",
+    "serve": "pnpm start"
+  }
+}

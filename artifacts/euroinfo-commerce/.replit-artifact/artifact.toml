@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "EuroInfotech"
+description = "Reusable multi-vendor commerce foundation for Euro Infotech (project 261002), with a Next.js App Router web app and REST API, PostgreSQL with Prisma, and a separate Node.js worker."
+version = "1.0.0"
+id = "artifacts/euroinfo-commerce"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25778
+
+[services.development]
+run = "pnpm --filter @workspace/euroinfo-commerce run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/euroinfo-commerce", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/euroinfo-commerce/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25778"
+BASE_PATH = "/"

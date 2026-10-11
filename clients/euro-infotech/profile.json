@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "clientKey": "euro-infotech",
+  "projectCode": "261002",
+  "displayName": "Euro Infotech",
+  "locale": "en-IN",
+  "currency": "INR",
+  "timeZone": "Asia/Kolkata",
+  "deploymentMode": "dedicated-client",
+  "coreVersion": "0.1.0",
+  "enabledModules": ["organisation-config", "identity", "vendors"],
+  "plannedModules": [
+    "catalogue",
+    "inventory",
+    "discovery",
+    "cart",
+    "pricing",
+    "orders",
+    "payments",
+    "fulfilment",
+    "returns",
+    "reviews",
+    "commission",
+    "payouts",
+    "ai-search",
+    "ai-product-entry",
+    "cms",
+    "notifications",
+    "support",
+    "reports"
+  ],
+  "providers": {
+    "payments": "disabled",
+    "shipping": "disabled",
+    "messaging": "disabled",
+    "ai": "disabled",
+    "storage": "disabled"
+  },
+  "payoutMode": "manual-approved",
+  "productionReady": false
+}

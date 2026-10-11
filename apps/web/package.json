@@ -1,0 +1,29 @@
+{
+  "name": "@workspace/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0 --port ${PORT:-3000}",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0 --port ${PORT:-3000}",
+    "typecheck": "next typegen && tsc --noEmit -p tsconfig.json",
+    "test:browser:identity": "tsx scripts/identity-browser.ts",
+    "test:browser:vendor": "tsx scripts/vendor-browser.ts"
+  },
+  "dependencies": {
+    "@workspace/contracts": "workspace:*",
+    "@workspace/core": "workspace:*",
+    "@workspace/database": "workspace:*",
+    "better-auth": "1.7.7",
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3"
+  }
+}

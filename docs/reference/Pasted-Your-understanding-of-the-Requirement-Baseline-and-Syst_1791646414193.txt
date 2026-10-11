@@ -1,0 +1,83 @@
+Your understanding of the Requirement Baseline and System Architecture is correct.
+
+The unresolved business decisions do not block Module 1. They affect later modules such as vendor onboarding, pricing, checkout, shipping, returns, commission and payouts. Do not invent or permanently hardcode any undecided business value.
+
+Proceed as follows:
+
+1. Create a concise Business Decision Register covering:
+   - Seller and invoicing model
+   - GST and tax responsibility
+   - Commission basis, rate type and effective dates
+   - Shipping-charge ownership and vendor-origin model
+   - Coupon funding and discount allocation
+   - COD eligibility and settlement
+   - Cancellation and return rules
+   - Refund allocation
+   - Payout hold and approval rules
+   - Vendor KYC requirements
+   - AI features in the MVP
+   - Android application launch scope
+   - Payment, shipping, messaging and storage providers
+
+2. Mark each unresolved item as TBC. Include:
+   - Decision ID
+   - Question requiring confirmation
+   - Affected module
+   - Required-before milestone
+   - Current status
+   - Final decision
+   - Approved by
+   - Approval date
+
+3. Store this register under:
+   docs/business-decisions.md
+
+4. Treat the following as confirmed for Module 1:
+   - TypeScript workspace
+   - Next.js web application and API
+   - Separate background worker
+   - PostgreSQL with Prisma
+   - Modular monolith
+   - Dedicated deployment and database per client
+   - Organisation-scoped data model
+   - Euro Infotech as the first client configuration
+   - Provider-neutral adapters
+   - AI and live provider integrations disabled during Module 1
+   - Synthetic development data only
+   - No production publishing during Module 1
+
+5. Before making any implementation changes:
+   - Inspect the connected GitHub repository, origin, current branch and working tree.
+   - Update from main.
+   - Create or switch to feat/m01-foundation.
+   - Push feat/m01-foundation to GitHub with upstream tracking.
+   - Confirm the branch is visible remotely.
+   - Do not commit Module 1 work directly to main.
+
+6. Implement Module 1 only according to the architecture and baseline documents.
+
+7. Run every required Module 1 verification:
+   - pnpm lint
+   - pnpm typecheck
+   - pnpm test
+   - pnpm test:integration
+   - pnpm test:e2e
+   - pnpm build
+   - Clean database migration
+   - Repeatable development seed
+   - Organisation-isolation checks
+   - Worker restart and durable-job checks
+   - Health and readiness checks
+   - Anonymous private-route rejection
+
+8. After Module 1 is completely functional and all required checks pass:
+   - Push all final commits.
+   - Open a pull request from feat/m01-foundation into main.
+   - Include implementation details, migrations, test evidence, limitations and the Business Decision Register.
+   - Merge only after required checks and repository rules pass.
+   - Pull and verify the resulting main commit.
+   - Report the branch, PR URL, tested commit SHA, resulting main SHA and post-merge verification.
+
+If GitHub access, database availability, testing, CI or repository rules block any step, retain the task branch and report the exact blocker. Do not describe skipped or blocked checks as passed.
+
+Start Module 1 now. Stop after Module 1 has been tested, merged and verified. Do not begin Module 2.

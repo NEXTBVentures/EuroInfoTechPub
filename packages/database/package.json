@@ -1,0 +1,33 @@
+{
+  "name": "@workspace/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./repositories": "./src/repositories.ts",
+    "./idempotency": "./src/idempotency.ts"
+  },
+  "scripts": {
+    "prisma": "prisma",
+    "db:migrate": "prisma migrate deploy --config prisma.config.ts",
+    "db:migrate:dev": "prisma migrate dev --config prisma.config.ts",
+    "db:seed:dev": "SEED_ENV=development tsx prisma/seed.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "@workspace/contracts": "workspace:*",
+    "@workspace/core": "workspace:*",
+    "dotenv": "16.6.1",
+    "zod": "4.1.12",
+    "pg": "8.16.3"
+  },
+  "devDependencies": {
+    "prisma": "7.10.0",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

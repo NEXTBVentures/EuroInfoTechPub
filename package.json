@@ -1,0 +1,40 @@
+{
+  "name": "nextb-commerce-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.26.1",
+  "scripts": {
+    "dev": "node scripts/supervise.mjs dev",
+    "build": "pnpm db:generate && pnpm --filter @workspace/web build && pnpm --filter @workspace/worker build",
+    "start": "node scripts/supervise.mjs start",
+    "db:migrate": "pnpm --filter @workspace/database db:migrate",
+    "db:seed:dev": "pnpm --filter @workspace/database db:seed:dev",
+    "db:generate": "pnpm --filter @workspace/database prisma generate",
+    "db:verify:clean": "tsx scripts/verify-clean-migration.ts",
+    "db:verify:m03": "tsx scripts/verify-m03-migration.ts",
+    "lint": "eslint apps packages scripts",
+    "typecheck": "pnpm -r --if-present typecheck && tsc --noEmit -p tsconfig.scripts.json",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "tsx scripts/e2e-smoke.ts",
+    "test:recovery": "tsx scripts/worker-recovery.ts",
+    "test:browser": "tsx scripts/browser-smoke.ts",
+    "test:identity:browser": "pnpm --filter @workspace/web test:browser:identity",
+    "test:vendor:browser": "pnpm --filter @workspace/web test:browser:vendor",
+    "identity:grant-owner": "tsx scripts/grant-development-owner.ts",
+    "contracts:codegen": "pnpm --filter @workspace/contracts codegen"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.15.6",
+    "eslint": "9.39.1",
+    "openapi-typescript": "7.10.1",
+    "pg": "8.16.3",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.48.1",
+    "vitest": "5.0.3"
+  }
+}

@@ -1,0 +1,89 @@
+openapi: 3.1.0
+info:
+  title: NEXTB Commerce Core API
+  version: 0.1.0
+  description: M01 public foundation endpoints. Private commerce APIs are not enabled.
+servers:
+  - url: /
+paths:
+  /api/v1/public-config:
+    get:
+      operationId: getPublicConfig
+      summary: Read allowlisted configuration for the resolved client organization
+      responses:
+        "200":
+          description: Public organization configuration and module registry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicClientConfig"
+        "404":
+          description: Host does not resolve to an allowed organization
+  /api/healthz:
+    get:
+      operationId: getHealth
+      summary: Process liveness
+      responses:
+        "200":
+          description: The web process is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/readyz:
+    get:
+      operationId: getReadiness
+      summary: Database, migration and worker readiness
+      responses:
+        "200":
+          description: All required services are ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: One or more required services are unavailable
+components:
+  schemas:
+    ModuleStatus:
+      type: object
+      required: [key, name, status, enabled]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [implemented, planned] }
+        enabled: { type: boolean }
+    PublicClientConfig:
+      type: object
+      required: [schemaVersion, clientKey, projectCode, displayName, locale, currency, timeZone, coreVersion, productionReady, modules]
+      properties:
+        schemaVersion: { type: integer, const: 1 }
+        clientKey: { type: string }
+        projectCode: { type: string }
+        displayName: { type: string }
+        locale: { type: string }
+        currency: { type: string }
+        timeZone: { type: string }
+        coreVersion: { type: string }
+        productionReady: { type: boolean }
+        modules:
+          type: array
+          items: { $ref: "#/components/schemas/ModuleStatus" }
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, const: ok }
+    ReadinessResponse:
+      type: object
+      required: [ready, checks]
+      properties:
+        ready: { type: boolean }
+        checks:
+          type: object
+          required: [database, migrations, worker]
+          properties:
+            database: { type: string, enum: [ready, not_ready] }
+            migrations: { type: string, enum: [ready, not_ready] }
+            worker: { type: string, enum: [ready, not_ready] }
